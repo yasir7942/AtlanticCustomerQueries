@@ -68,7 +68,7 @@ final class DashboardController
             'websiteRows' => $websiteRows,
             'daily' => $q->dailyCountsByType($filter),
             'byStatus' => $q->countsByStatus($filter),
-            'recent' => $q->page($filter, 1, 8),
+            'recent' => $q->page($filter, 1, 10),
             'noScope' => $ctx->scope()->isEmpty(),
         ]);
     }

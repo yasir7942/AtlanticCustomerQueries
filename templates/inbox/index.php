@@ -110,7 +110,7 @@ if (!$filter->includeTests) { $chips[] = ['Tests', 'Hidden', 'tests']; }
                 <tr class="<?= $r['status'] === 'new' ? 'is-new' : '' ?>">
                     <td data-label="Received" class="nowrap"><a href="<?= e($href) ?>" class="row-link"><time datetime="<?= e(Time::iso($r['received_at'])) ?>"><?= e(Time::local($r['received_at'], $tz)) ?></time></a></td>
                     <td data-label="Website"><?= e($r['website_name']) ?></td>
-                    <td data-label="Type"><span class="type type-<?= e($r['form_type']) ?>"><?= e(Presenter::TYPE_LABELS[$r['form_type']]) ?></span><?php if ($r['is_test']): ?> <span class="tag">Test</span><?php endif; ?></td>
+                    <td data-label="Type"><?= \App\Support\Icons::typeBadge($r['form_type'], Presenter::TYPE_LABELS[$r['form_type']]) ?><?php if ($r['is_test']): ?> <span class="tag">Test</span><?php endif; ?></td>
                     <td data-label="Customer"><bdi dir="<?= e(Presenter::dir(Presenter::customer($r))) ?>"><?= e(Presenter::customer($r)) ?></bdi>
                         <?php if ($r['email'] !== ''): ?><span class="sub"><?= e($r['email']) ?></span><?php endif; ?></td>
                     <td data-label="Request" class="summary"><span dir="<?= e(Presenter::dir($summary)) ?>"><?= e($summary) ?></span></td>

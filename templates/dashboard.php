@@ -55,6 +55,10 @@ $statusIcons = ['new' => 'flag', 'open' => 'clock', 'closed' => 'inbox', 'spam' 
     <?php endforeach; ?>
 </section>
 
+<section class="panel">
+    <?= $view->partial('partials/daily-chart', ['daily' => $daily, 'baseQuery' => [], 'ctx' => $ctx]) ?>
+</section>
+
 <div class="grid-2">
     <section class="panel" aria-labelledby="by-site">
         <div class="panel-head">
@@ -64,8 +68,15 @@ $statusIcons = ['new' => 'flag', 'open' => 'clock', 'closed' => 'inbox', 'spam' 
         <?php if (!$websiteRows): ?>
             <p class="muted">No websites registered yet.</p>
         <?php else: $maxSite = max(1, ...array_column($websiteRows, 'count')); ?>
+            <?php $visibleCount = 8; ?>
             <ul class="barlist">
-                <?php foreach ($websiteRows as $w):
+                <?php foreach ($websiteRows as $i => $w):
+                    if ($i === $visibleCount): ?>
+            </ul>
+            <details class="more-sites">
+                <summary>Show <?= e(count($websiteRows) - $visibleCount) ?> more website<?= count($websiteRows) - $visibleCount === 1 ? '' : 's' ?></summary>
+                <ul class="barlist">
+                    <?php endif;
                     $parts = [];
                     foreach (Presenter::TYPE_LABELS as $type => $label) {
                         if ($w['types'][$type] > 0) {
@@ -91,6 +102,7 @@ $statusIcons = ['new' => 'flag', 'open' => 'clock', 'closed' => 'inbox', 'spam' 
                     </li>
                 <?php endforeach; ?>
             </ul>
+            <?php if (count($websiteRows) > $visibleCount): ?></details><?php endif; ?>
             <ul class="legend legend-compact" aria-label="Legend">
                 <?php foreach (Presenter::TYPE_LABELS as $type => $label): ?>
                     <li><span class="swatch swatch-<?= e($type) ?>" aria-hidden="true"></span><?= e($label) ?></li>
@@ -99,10 +111,6 @@ $statusIcons = ['new' => 'flag', 'open' => 'clock', 'closed' => 'inbox', 'spam' 
         <?php endif; ?>
     </section>
 
-    <section class="panel">
-        <?= $view->partial('partials/daily-chart', ['daily' => $daily, 'baseQuery' => [], 'ctx' => $ctx]) ?>
-    </section>
-</div>
 
 <section class="panel" aria-labelledby="recent">
     <div class="panel-head">
@@ -128,4 +136,5 @@ $statusIcons = ['new' => 'flag', 'open' => 'clock', 'closed' => 'inbox', 'spam' 
         </ul>
     <?php endif; ?>
 </section>
+</div>
 <?php endif; ?>

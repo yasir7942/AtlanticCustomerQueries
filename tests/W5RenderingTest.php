@@ -130,7 +130,7 @@ test($G, 'dashboard, inbox and report totals agree for the same filters', functi
     preg_match('/^"?All websites"?,,(\d+),(\d+),(\d+),(\d+),(\d+)/m', $csv, $m3);
     eq($dashTotal, (int) $m3[5], 'dashboard vs report');
     // Per type: dashboard count links to inbox with the same filters.
-    preg_match('#href="([^"]*type=quote[^"]*)"[^>]*>\s*<span class="kpi-label">Quote</span>\s*<span class="kpi-value">(\d+)#', $dash, $qm);
+    preg_match('#href="([^"]*type=quote[^"]*)".*?<span class="kpi-label">Quote</span>\s*<span class="kpi-value">(\d+)#s', $dash, $qm);
     parse_str((string) parse_url(html_entity_decode($qm[1]), PHP_URL_QUERY), $qs);
     $inboxQuote = $c->get('/inbox', $qs)->body;
     preg_match('#<strong>([\d,]+)</strong> inquir#', $inboxQuote, $m4);

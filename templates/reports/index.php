@@ -58,5 +58,5 @@ $exportQuery = ['period' => $period, 'from' => $from, 'to' => $to, 'website' => 
 </section>
 
 <section class="panel">
-    <?= $view->partial('partials/daily-chart', ['daily' => $daily, 'baseQuery' => array_filter(['website' => $filter->websiteId]), 'ctx' => $ctx]) ?>
+    <?= $view->partial('partials/daily-chart', ['daily' => $dailyByType, 'baseQuery' => array_filter(['website' => $filter->websiteId]), 'ctx' => $ctx]) ?>
 </section>

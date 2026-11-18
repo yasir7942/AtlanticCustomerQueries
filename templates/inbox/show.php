@@ -16,7 +16,7 @@ $messageDir = Presenter::dir((string) $row['message']);
     <div>
         <p class="crumb"><a href="<?= e($ctx->url('/inbox', $backQuery)) ?>">← Back to inbox</a></p>
         <h1>
-            <span class="type type-<?= e($row['form_type']) ?>"><?= e(Presenter::TYPE_LABELS[$row['form_type']]) ?></span>
+            <?= \App\Support\Icons::typeBadge($row['form_type'], Presenter::TYPE_LABELS[$row['form_type']]) ?>
             <bdi dir="<?= e(Presenter::dir(Presenter::customer($row))) ?>"><?= e(Presenter::customer($row)) ?></bdi>
         </h1>
         <p class="muted">

@@ -29,7 +29,7 @@ if ($max <= 10) {
         }
     }
 }
-$W = 720; $H = 210; $padL = 34; $padB = 24; $padT = 8;
+$W = 1000; $H = 230; $padL = 34; $padB = 24; $padT = 8;
 $plotW = $W - $padL - 4; $plotH = $H - $padB - $padT;
 $slot = $n > 0 ? $plotW / $n : $plotW;
 $barW = max(1.0, min(28.0, $slot - 2));
@@ -60,6 +60,7 @@ $roundedTop = static function (float $x, float $y, float $w, float $h, float $r)
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>
+    <div class="chart-scroll">
     <svg class="chart-svg" viewBox="0 0 <?= $W ?> <?= $H ?>" role="img" aria-label="Bar chart of inquiries per day<?= $stacked ? ' by type' : '' ?>, <?= e(number_format($total)) ?> in total. A data table follows.">
         <?php foreach ($ticks as $t): $ty = $base - $scale($t); ?>
             <line class="chart-grid" x1="<?= $padL ?>" x2="<?= $W - 4 ?>" y1="<?= $f($ty) ?>" y2="<?= $f($ty) ?>"></line>
@@ -107,6 +108,7 @@ $roundedTop = static function (float $x, float $y, float $w, float $h, float $r)
             <text class="chart-axis" x="<?= $f($padL + $i * $slot + $slot / 2) ?>" y="<?= $H - 6 ?>" text-anchor="<?= $i === 0 && $n > 1 ? 'start' : ($i === $n - 1 && $n > 1 ? 'end' : 'middle') ?>"><?= e(date_create($dates[$i])->format('d M')) ?></text>
         <?php endforeach; ?>
     </svg>
+    </div>
     <details class="chart-table">
         <summary>Show as table</summary>
         <div class="table-wrap">

@@ -33,6 +33,7 @@ final class ReportController
             'period' => $period, 'from' => $from, 'to' => $to, 'filter' => $filter,
             'rows' => $rows, 'totals' => $totals, 'grand' => array_sum($totals),
             'daily' => $q->dailyCounts($filter),
+            'dailyByType' => $q->dailyCountsByType($filter),
             'websites' => $ctx->scope()->websites($ctx->db),
         ];
     }
