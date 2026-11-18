@@ -28,6 +28,7 @@ $roleLabels = ['developer' => 'Developer', 'director' => 'Director', 'user' => '
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title><?= e(($title ? $title . ' · ' : '') . $appName) ?></title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="<?= e($ctx->url('/assets/app.css')) ?>?v=<?= e(\App\App::VERSION) ?>">
     <script src="<?= e($ctx->url('/assets/app.js')) ?>?v=<?= e(\App\App::VERSION) ?>" defer></script>
 </head>

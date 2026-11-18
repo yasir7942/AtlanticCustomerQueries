@@ -8,6 +8,7 @@ $base = rtrim($base, '/');
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title><?= e(($title ?? '') !== '' ? $title . ' · ' . $appName : $appName) ?></title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="<?= e($base . '/assets/app.css') ?>?v=<?= e(\App\App::VERSION) ?>">
     <script src="<?= e($base . '/assets/app.js') ?>?v=<?= e(\App\App::VERSION) ?>" defer></script>
 </head>

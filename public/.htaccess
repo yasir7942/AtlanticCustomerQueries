@@ -23,7 +23,12 @@ ServerSignature Off
     # Block dotfiles (except .well-known for certificate validation).
     RewriteRule (^|/)\.(?!well-known/) - [F,L]
 
-    # Front controller: real files in assets/ are served directly, everything else goes to index.php.
+    # Static assets are always served from disk, never routed to PHP. This does not rely on the
+    # -f check below, which LiteSpeed can evaluate against the original URL when the project is
+    # deployed in a subfolder and requests arrive via the root .htaccess rewrite.
+    RewriteRule ^assets/ - [L]
+
+    # Front controller: real files are served directly, everything else goes to index.php.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L,QSA]
 </IfModule>
