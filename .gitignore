@@ -1,9 +1,49 @@
+# Installed dependencies
 /vendor/
-/.env
+node_modules/
+
+# Environment files and credentials
+.env
+.env.*
+.env~
+!.env.example
+!.env.*.example
+auth.json
+.htpasswd
+/.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Local integration settings and queued inquiries
+inquiry-config.php
+inquiry-outbox/
+wp-config.php
+/integrations/shopify/app-proxy/config.php
+/integrations/shopify-proxy-private/
+/integrations/shopify/shopify.app.toml
+
+# Runtime files
 /storage/logs/*
 /storage/sessions/*
 /storage/backups/*
 !/storage/**/.gitkeep
 !/storage/**/.htaccess
-/reference/*.sqlite-shm
-/reference/*.sqlite-wal
+*.log
+
+# Local databases and exports
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.sql
+*.sql.gz
+*.sql.zip
+*.dump
+!/database/migrations/*.sql
+!/reference/inquiries.sqlite
