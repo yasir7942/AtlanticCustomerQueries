@@ -1,0 +1,10 @@
+# Excerpt for the app's shopify.app.toml (Shopify CLI project). Deploy with: shopify app deploy
+# The app proxy forwards https://<store>/apps/inquiries/* to the relay URL below.
+
+[access_scopes]
+scopes = "write_app_proxy"
+
+[app_proxy]
+url = "https://inquiries.example.com/shopify-proxy"
+prefix = "apps"
+subpath = "inquiries"

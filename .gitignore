@@ -1,0 +1,9 @@
+/vendor/
+/.env
+/storage/logs/*
+/storage/sessions/*
+/storage/backups/*
+!/storage/**/.gitkeep
+!/storage/**/.htaccess
+/reference/*.sqlite-shm
+/reference/*.sqlite-wal

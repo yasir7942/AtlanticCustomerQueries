@@ -1,0 +1,16 @@
+# Local development only (XAMPP serves the whole project folder from htdocs).
+# Everything is rewritten into public/, so .env, src/, storage/, vendor/ and reference/
+# are never reachable over HTTP. On Hostinger only the contents of public/ go to public_html.
+
+Options -Indexes -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteRule ^(public/)?(.*)$ public/$2 [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>

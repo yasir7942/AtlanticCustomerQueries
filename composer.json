@@ -1,0 +1,41 @@
+{
+    "name": "atlantic/inquiry-manager",
+    "description": "Internal multi-website inquiry manager (contact, quote and sample requests).",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*"
+    },
+    "suggest": {
+        "ext-zip": "Builds the WordPress plugin ZIP on the server (a prebuilt ZIP ships in dist/)",
+        "ext-curl": "Used by the plain PHP connector example"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "migrate": "@php bin/migrate.php",
+        "test": "@php tests/run.php",
+        "build-plugin": "@php bin/build-wordpress-plugin.php"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "platform-check": "php-only"
+    }
+}

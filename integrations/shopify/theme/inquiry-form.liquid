@@ -1,0 +1,70 @@
+{%- comment -%}
+  Inquiry form for a Shopify theme (add as a section or snippet, e.g. sections/inquiry-form.liquid).
+  It posts to the app proxy path. Shopify forwards the POST, signed, to the relay server, which
+  forwards it to the Inquiry Manager. No key or secret appears here.
+
+  On a product page the current product is pre-filled as a quote line.
+  Change "inquiries" below if you configured a different proxy subpath.
+{%- endcomment -%}
+<div class="page-width inquiry-form">
+  <h2>{{ section.settings.heading | default: 'Request a quote' }}</h2>
+  <form action="{{ routes.root_url | append: '/apps/inquiries/submit' | replace: '//', '/' }}" method="post" accept-charset="UTF-8">
+    <input type="hidden" name="inquiry_type" value="{% if product %}quote{% else %}{{ section.settings.inquiry_type | default: 'contact' }}{% endif %}">
+    <input type="hidden" name="locale" value="{{ request.locale.iso_code }}">
+    <input type="hidden" name="inquiry_token" value="" data-inquiry-token>
+
+    {%- comment -%} Honeypot: hidden from people, filled by bots. {%- endcomment -%}
+    <div style="position:absolute;left:-9999px" aria-hidden="true">
+      <label>Website <input type="text" name="contact[website]" tabindex="-1" autocomplete="off"></label>
+    </div>
+
+    <p><label for="inq-name">Name</label><br>
+      <input id="inq-name" type="text" name="contact[name]" autocomplete="name" required maxlength="190"></p>
+    <p><label for="inq-company">Company</label><br>
+      <input id="inq-company" type="text" name="contact[company]" autocomplete="organization" maxlength="190"></p>
+    <p><label for="inq-email">Email</label><br>
+      <input id="inq-email" type="email" name="contact[email]" autocomplete="email" required maxlength="190"></p>
+    <p><label for="inq-phone">Phone</label><br>
+      <input id="inq-phone" type="tel" name="contact[phone]" autocomplete="tel" maxlength="50"></p>
+
+    {%- if product -%}
+      <fieldset>
+        <legend>Product</legend>
+        <input type="hidden" name="products[0][title]" value="{{ product.title | escape }}">
+        <input type="hidden" name="products[0][sku]" value="{{ product.selected_or_first_available_variant.sku | escape }}">
+        <input type="hidden" name="products[0][variant]" value="{{ product.selected_or_first_available_variant.title | escape }}">
+        <p>{{ product.title | escape }}</p>
+        <p><label for="inq-qty">Quantity</label><br>
+          <input id="inq-qty" type="number" name="products[0][quantity]" min="1" value="1"></p>
+      </fieldset>
+    {%- endif -%}
+
+    <p><label for="inq-msg">Message</label><br>
+      <textarea id="inq-msg" name="contact[body]" rows="5" maxlength="20000"></textarea></p>
+    <p><label for="inq-deadline">Needed by (optional)</label><br>
+      <input id="inq-deadline" type="date" name="fields[Needed by]"></p>
+
+    <button type="submit" class="button">Send inquiry</button>
+  </form>
+</div>
+
+<script>
+  // One random token per form view keeps a double-submitted form from creating two inquiries.
+  document.querySelectorAll('[data-inquiry-token]').forEach(function (el) {
+    if (!el.value) {
+      el.value = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(36).slice(2, 14);
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Inquiry form",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Request a quote" },
+    { "type": "select", "id": "inquiry_type", "label": "Inquiry type (non-product pages)", "default": "contact",
+      "options": [ { "value": "contact", "label": "Contact" }, { "value": "quote", "label": "Quote" }, { "value": "sample", "label": "Sample" } ] }
+  ],
+  "presets": [ { "name": "Inquiry form" } ]
+}
+{% endschema %}

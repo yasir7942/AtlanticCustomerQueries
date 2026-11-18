@@ -1,0 +1,58 @@
+# Production .htaccess for the public directory (Hostinger public_html, or public/ locally).
+# Works on Apache and LiteSpeed (Hostinger).
+
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+ServerSignature Off
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Pass the Authorization header to PHP (CGI/FastCGI/LiteSpeed may strip it).
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Force HTTPS for browser traffic. API clients must call https:// directly
+    # (a redirect would drop the POST body); the API itself rejects plain HTTP.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteCond %{REQUEST_URI} !/api/v1/
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Block dotfiles (except .well-known for certificate validation).
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Front controller: real files in assets/ are served directly, everything else goes to index.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# Never serve source, config or data files even if they are uploaded here by mistake.
+<FilesMatch "\.(env|ini|log|sql|sqlite|sqlite3|db|bak|sh|lock|json|md|dist|yml|yaml)$|^composer\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+    Header always unset X-Powered-By
+    <FilesMatch "\.(css|js|svg|png|ico|woff2)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+</IfModule>
+
+# Hide PHP errors from visitors (the app also sets this). Logged to storage/logs.
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag expose_php Off
+</IfModule>
+<IfModule lsapi_module>
+    php_flag display_errors Off
+</IfModule>

@@ -1,0 +1,10 @@
+# Route every proxied sub-path (e.g. /shopify-proxy/submit) to index.php.
+Options -Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+<FilesMatch "^(config|config\.example)\.php$">
+    Require all denied
+</FilesMatch>
