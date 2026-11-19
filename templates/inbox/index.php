@@ -17,9 +17,19 @@ if (!$filter->includeTests) { $chips[] = ['Tests', 'Hidden', 'tests']; }
 ?>
 <div class="page-head">
     <h1>Inbox</h1>
-    <?php if ($total > 0): ?>
-        <a class="btn" href="<?= e($ctx->url('/inbox/export', $query)) ?>">Download CSV</a>
-    <?php endif; ?>
+    <div class="head-actions">
+        <?php if ($canDelete && $testCount > 0): ?>
+            <form method="post" action="<?= e($ctx->url('/inbox/delete-tests')) ?>"
+                  data-confirm="Permanently delete <?= e($testCount) ?> test inquir<?= $testCount === 1 ? 'y' : 'ies' ?><?= $filter->websiteId !== null ? ' from ' . e($siteNames[$filter->websiteId] ?? 'this website') : '' ?>? This cannot be undone.">
+                <?= $ctx->csrf->field() ?>
+                <?php if ($filter->websiteId !== null): ?><input type="hidden" name="website" value="<?= e($filter->websiteId) ?>"><?php endif; ?>
+                <button type="submit" class="btn btn-danger" title="Inquiries sent with &quot;test&quot;: true, such as connection tests">Delete test inquiries (<?= e(number_format($testCount)) ?>)</button>
+            </form>
+        <?php endif; ?>
+        <?php if ($total > 0): ?>
+            <a class="btn" href="<?= e($ctx->url('/inbox/export', $query)) ?>">Download CSV</a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <form method="get" action="<?= e($ctx->url('/inbox')) ?>" class="filters" role="search" aria-label="Filter inquiries">
@@ -93,10 +103,21 @@ if (!$filter->includeTests) { $chips[] = ['Tests', 'Hidden', 'tests']; }
         <p><?= $filter->isActive() ? 'Try a wider date range or remove a filter.' : 'Inquiries appear here as soon as a connected website sends them.' ?></p>
     </div>
 <?php else: ?>
+    <?php if ($canDelete): ?>
+        <form id="bulk-delete" method="post" action="<?= e($ctx->url('/inbox/delete')) ?>" class="bulk-bar"
+              data-confirm="Permanently delete the selected inquiries? This cannot be undone.">
+            <?= $ctx->csrf->field() ?>
+            <button type="submit" class="btn btn-danger btn-small" data-bulk-button disabled><span>Delete selected (<span data-bulk-count>0</span>)</span></button>
+            <span class="muted">Tick inquiries you sent while testing, then delete them. Developers only.</span>
+        </form>
+    <?php endif; ?>
     <div class="table-wrap">
         <table class="table inbox-table">
             <thead>
             <tr>
+                <?php if ($canDelete): ?>
+                    <th scope="col" class="col-check"><input type="checkbox" data-check-all aria-label="Select all inquiries on this page"></th>
+                <?php endif; ?>
                 <th scope="col">Received</th>
                 <th scope="col">Website</th>
                 <th scope="col">Type</th>
@@ -108,6 +129,9 @@ if (!$filter->includeTests) { $chips[] = ['Tests', 'Hidden', 'tests']; }
             <tbody>
             <?php foreach ($rows as $r): $href = $ctx->url('/inbox/' . $r['id']); $summary = Presenter::summary($r); ?>
                 <tr class="<?= $r['status'] === 'new' ? 'is-new' : '' ?>">
+                    <?php if ($canDelete): ?>
+                        <td data-label="Select" class="col-check"><input type="checkbox" name="ids[]" value="<?= e($r['id']) ?>" form="bulk-delete" data-bulk aria-label="Select inquiry #<?= e($r['id']) ?>"></td>
+                    <?php endif; ?>
                     <td data-label="Received" class="nowrap"><a href="<?= e($href) ?>" class="row-link"><time datetime="<?= e(Time::iso($r['received_at'])) ?>"><?= e(Time::local($r['received_at'], $tz)) ?></time></a></td>
                     <td data-label="Website"><?= e($r['website_name']) ?></td>
                     <td data-label="Type"><?= \App\Support\Icons::typeBadge($r['form_type'], Presenter::TYPE_LABELS[$r['form_type']]) ?><?php if ($r['is_test']): ?> <span class="tag">Test</span><?php endif; ?></td>

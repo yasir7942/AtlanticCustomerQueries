@@ -122,3 +122,68 @@ test($G, 'deactivating an account ends its sessions immediately', function () us
     $r = (new Client())->login('deact-w3@example.test', 'correct horse battery');
     eq(422, $r->status, 'inactive account cannot sign in');
 });
+
+$G3d = 'Workflow 3: Developers delete test inquiries';
+
+$w3d = new stdClass();
+
+test($G3d, 'setup: a site with two test inquiries and one real one', function () use ($w3d) {
+    $w3d->site = make_website('Cleanup Site', 'cleanup.example');
+    $w3d->other = make_website('Other Cleanup Site', 'cleanup-other.example');
+    $key = make_key((int) $w3d->site['id']);
+    $otherKey = make_key((int) $w3d->other['id']);
+    eq(201, api($key, sample_payload('clean-t1', ['test' => true]))['status']);
+    eq(201, api($key, sample_payload('clean-t2', ['test' => true]))['status']);
+    eq(201, api($key, sample_payload('clean-real'))['status']);
+    eq(201, api($otherKey, sample_payload('clean-other-t', ['test' => true]))['status']);
+    $w3d->dev = make_user('developer', 'dev-w3d@example.test');
+    $w3d->c = new Client();
+    eq(303, $w3d->c->login('dev-w3d@example.test', 'correct horse battery')->status);
+});
+
+test($G3d, 'Developer deletes every test inquiry of the filtered website, real ones stay', function () use ($w3d) {
+    $siteId = (int) $w3d->site['id'];
+    $page = $w3d->c->get('/inbox', ['website' => (string) $siteId])->body;
+    contains('Delete test inquiries (2)', $page, 'button counts only this site\'s tests');
+    contains('Delete selected', $page);
+    eq(303, $w3d->c->post('/inbox/delete-tests', ['website' => (string) $siteId])->status);
+    eq(0, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE website_id = ? AND is_test = 1', [$siteId]));
+    eq(1, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE website_id = ? AND is_test = 0', [$siteId]), 'real inquiry kept');
+    eq(1, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE website_id = ? AND is_test = 1', [$w3d->other['id']]), 'other website untouched');
+    $audit = T::db()->one('SELECT * FROM audit_log WHERE action = "inquiry.delete" AND actor_user_id = ? ORDER BY id DESC LIMIT 1', [$w3d->dev['id']]);
+    ok($audit !== null, 'deletion audited');
+    contains('"count":2', (string) $audit['details']);
+    not_contains('person@example.test', (string) $audit['details'], 'no personal data in the audit log');
+});
+
+test($G3d, 'Developer deletes ticked inquiries and single inquiries', function () use ($w3d) {
+    $otherTest = (int) T::db()->value('SELECT id FROM submissions WHERE submission_uid = "clean-other-t"');
+    $real = (int) T::db()->value('SELECT id FROM submissions WHERE submission_uid = "clean-real"');
+    eq(303, $w3d->c->post('/inbox/delete', ['ids' => [(string) $otherTest]])->status);
+    eq(0, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE id = ?', [$otherTest]));
+    contains('Delete inquiry', $w3d->c->get('/inbox/' . $real)->body, 'detail page offers delete');
+    eq(303, $w3d->c->post('/inbox/' . $real . '/delete')->status);
+    eq(0, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE id = ?', [$real]));
+    eq(404, $w3d->c->post('/inbox/' . $real . '/delete')->status, 'already gone');
+});
+
+test($G3d, 'Directors and Users cannot delete inquiries and see no delete buttons', function () use ($w3d) {
+    $key = make_key((int) $w3d->site['id']);
+    eq(201, api($key, sample_payload('clean-keep', ['test' => true]))['status']);
+    $id = (int) T::db()->value('SELECT id FROM submissions WHERE submission_uid = "clean-keep"');
+    make_user('director', 'dir-w3d@example.test');
+    $user = make_user('user', 'user-w3d@example.test');
+    T::db()->run('INSERT INTO website_user (user_id, website_id, created_at) VALUES (?, ?, ?)', [$user['id'], $w3d->site['id'], utc_now()]);
+    foreach (['dir-w3d@example.test', 'user-w3d@example.test'] as $email) {
+        $c = new Client();
+        eq(303, $c->login($email, 'correct horse battery')->status);
+        $inbox = $c->get('/inbox')->body;
+        not_contains('Delete test inquiries', $inbox, $email);
+        not_contains('Delete selected', $inbox, $email);
+        not_contains('Delete inquiry', $c->get('/inbox/' . $id)->body, $email);
+        eq(403, $c->post('/inbox/delete-tests')->status, $email);
+        eq(403, $c->post('/inbox/delete', ['ids' => [(string) $id]])->status, $email);
+        eq(403, $c->post('/inbox/' . $id . '/delete')->status, $email);
+    }
+    eq(1, (int) T::db()->value('SELECT COUNT(*) FROM submissions WHERE id = ?', [$id]), 'still there');
+});

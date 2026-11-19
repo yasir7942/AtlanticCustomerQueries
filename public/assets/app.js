@@ -56,6 +56,31 @@
         }
     });
 
+    // Inbox bulk delete (Developers): select all + live count.
+    var bulkButton = document.querySelector('[data-bulk-button]');
+    if (bulkButton) {
+        var boxes = Array.prototype.slice.call(document.querySelectorAll('[data-bulk]'));
+        var all = document.querySelector('[data-check-all]');
+        var countEl = bulkButton.querySelector('[data-bulk-count]');
+        var syncBulk = function () {
+            var n = boxes.filter(function (b) { return b.checked; }).length;
+            countEl.textContent = String(n);
+            bulkButton.disabled = n === 0;
+            if (all) {
+                all.checked = n > 0 && n === boxes.length;
+                all.indeterminate = n > 0 && n < boxes.length;
+            }
+        };
+        boxes.forEach(function (b) { b.addEventListener('change', syncBulk); });
+        if (all) {
+            all.addEventListener('change', function () {
+                boxes.forEach(function (b) { b.checked = all.checked; });
+                syncBulk();
+            });
+        }
+        syncBulk();
+    }
+
     // Auto-submit selects (guide platform switcher).
     document.querySelectorAll('[data-autosubmit]').forEach(function (el) {
         el.addEventListener('change', function () { el.form.submit(); });

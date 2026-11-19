@@ -23,6 +23,7 @@ final class InboxController
         $page = min($pages, max(1, (int) $ctx->request->query('page', '1')));
         $websites = $ctx->scope()->websites($ctx->db);
         $websiteOutOfScope = $filter->websiteId !== null && !$ctx->scope()->allows($filter->websiteId);
+        $canDelete = $ctx->can('inquiries.delete');
         $ctx->session->set('inbox_back', $filter->toQuery() + ($page > 1 ? ['page' => $page] : []));
 
         return $ctx->render('inbox/index', [
@@ -35,6 +36,8 @@ final class InboxController
             'websites' => $websites,
             'websiteOutOfScope' => $websiteOutOfScope,
             'noScope' => $ctx->scope()->isEmpty(),
+            'canDelete' => $canDelete,
+            'testCount' => $canDelete ? count($q->testIds($filter->websiteId)) : 0,
         ]);
     }
 
@@ -68,6 +71,64 @@ final class InboxController
         }
         $ctx->flash('success', 'Status set to ' . Presenter::STATUS_LABELS[$status] . '.');
         return $ctx->redirect('/inbox/' . $id);
+    }
+
+    /** Developer only: permanently delete every test inquiry ("test": true), optionally for one website. */
+    public function deleteTests(Context $ctx): Response
+    {
+        $website = $ctx->request->input('website');
+        $websiteId = ctype_digit($website) ? (int) $website : null;
+        $q = $ctx->inquiries();
+        $deleted = $q->deleteIds($q->testIds($websiteId));
+        if ($deleted !== []) {
+            $ctx->audit->record($ctx->me(), 'inquiry.delete', 'inquiry', null, 'Test inquiries', 'success', [
+                'count' => count($deleted), 'tests_only' => true, 'website_id' => $websiteId,
+            ]);
+        }
+        $ctx->flash('success', $deleted === [] ? 'There were no test inquiries to delete.' : self::deletedMessage(count($deleted), 'test '));
+        return $ctx->redirect('/inbox', $this->backQuery($ctx));
+    }
+
+    /** Developer only: permanently delete the inquiries ticked in the inbox list. */
+    public function deleteSelected(Context $ctx): Response
+    {
+        $ids = array_slice($ctx->request->inputList('ids'), 0, 500);
+        $deleted = $ctx->inquiries()->deleteIds(array_map('intval', $ids));
+        if ($deleted === []) {
+            $ctx->flash('error', 'Tick at least one inquiry to delete.');
+        } else {
+            $ctx->audit->record($ctx->me(), 'inquiry.delete', 'inquiry', count($deleted) === 1 ? $deleted[0] : null,
+                count($deleted) === 1 ? '#' . $deleted[0] : count($deleted) . ' inquiries', 'success', ['count' => count($deleted), 'ids' => $deleted]);
+            $ctx->flash('success', self::deletedMessage(count($deleted)));
+        }
+        return $ctx->redirect('/inbox', $this->backQuery($ctx));
+    }
+
+    /** Developer only: permanently delete one inquiry from its detail page. */
+    public function destroy(Context $ctx): Response
+    {
+        $id = (int) $ctx->request->params['id'];
+        $ctx->inquiries()->find($id) ?? throw new NotFound();
+        $ctx->inquiries()->deleteIds([$id]);
+        $ctx->audit->record($ctx->me(), 'inquiry.delete', 'inquiry', $id, '#' . $id, 'success', ['count' => 1, 'ids' => [$id]]);
+        $ctx->flash('success', 'Inquiry #' . $id . ' was deleted.');
+        return $ctx->redirect('/inbox', $this->backQuery($ctx));
+    }
+
+    private static function deletedMessage(int $n, string $kind = ''): string
+    {
+        return number_format($n) . ' ' . $kind . 'inquir' . ($n === 1 ? 'y was' : 'ies were') . ' deleted.';
+    }
+
+    /** Return to the inbox with the filters the user was looking at. */
+    private function backQuery(Context $ctx): array
+    {
+        $back = $ctx->session->get('inbox_back');
+        if (!is_array($back)) {
+            return [];
+        }
+        unset($back['page']);
+        return array_filter($back, static fn ($v): bool => is_scalar($v));
     }
 
     /** CSV of the current filter, limited to the viewer's websites. */

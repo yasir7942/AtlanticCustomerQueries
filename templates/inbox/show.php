@@ -148,5 +148,16 @@ $messageDir = Presenter::dir((string) $row['message']);
                 <?php endif; ?>
             </dl>
         </section>
+
+        <?php if ($ctx->can('inquiries.delete')): ?>
+        <section class="panel danger-zone" aria-labelledby="del-h">
+            <h2 id="del-h" class="h3">Delete inquiry</h2>
+            <p class="muted">For test or unwanted inquiries. This permanently removes it from the inbox, dashboard and reports.</p>
+            <form method="post" action="<?= e($ctx->url('/inbox/' . $row['id'] . '/delete')) ?>" data-confirm="Permanently delete inquiry #<?= e($row['id']) ?>? This cannot be undone.">
+                <?= $ctx->csrf->field() ?>
+                <button type="submit" class="btn btn-danger">Delete inquiry</button>
+            </form>
+        </section>
+        <?php endif; ?>
     </aside>
 </div>

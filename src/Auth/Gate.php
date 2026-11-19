@@ -13,6 +13,7 @@ final class Gate
 
     private const ABILITIES = [
         'inquiries.read' => ['developer', 'director', 'user'],
+        'inquiries.delete' => ['developer'],     // remove test / unwanted inquiries
         'profile.manage' => ['developer', 'director', 'user'],
         'users.manage' => ['developer', 'director'],
         'websites.view' => ['developer', 'director'],

@@ -112,6 +112,43 @@ final class SubmissionQuery
     }
 
     /**
+     * Permanently delete the given inquiries, limited to the viewer's websites.
+     *
+     * @param list<int> $ids
+     * @return list<int> ids actually deleted
+     */
+    public function deleteIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        [$scopeSql, $params] = $this->scope->sql('s.website_id');
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $found = array_map('intval', array_column($this->db->all(
+            "SELECT s.id FROM submissions s WHERE s.id IN ({$marks}) AND {$scopeSql}",
+            array_merge($ids, $params)
+        ), 'id'));
+        if ($found !== []) {
+            $marks = implode(',', array_fill(0, count($found), '?'));
+            $this->db->run("DELETE FROM submissions WHERE id IN ({$marks})", $found);
+        }
+        return $found;
+    }
+
+    /** Ids of test inquiries (sent with "test": true), optionally for one website, within scope. */
+    public function testIds(?int $websiteId = null): array
+    {
+        [$scopeSql, $params] = $this->scope->sql('s.website_id');
+        $sql = "SELECT s.id FROM submissions s WHERE s.is_test = 1 AND {$scopeSql}";
+        if ($websiteId !== null) {
+            $sql .= ' AND s.website_id = ?';
+            $params[] = $websiteId;
+        }
+        return array_map('intval', array_column($this->db->all($sql, $params), 'id'));
+    }
+
+    /**
      * Iterate all matching rows for CSV export (unbuffered batches).
      *
      * @return \Generator<array<string,mixed>>

@@ -71,6 +71,9 @@ final class App
         $r->add('GET', '/inbox', [Controllers\InboxController::class, 'index'], ['ability' => 'inquiries.read']);
         $r->add('GET', '/inbox/export', [Controllers\InboxController::class, 'export'], ['ability' => 'inquiries.read']);
         $r->add('GET', '/inbox/{id}', [Controllers\InboxController::class, 'show'], ['ability' => 'inquiries.read']);
+        $r->add('POST', '/inbox/delete-tests', [Controllers\InboxController::class, 'deleteTests'], ['ability' => 'inquiries.delete']);
+        $r->add('POST', '/inbox/delete', [Controllers\InboxController::class, 'deleteSelected'], ['ability' => 'inquiries.delete']);
+        $r->add('POST', '/inbox/{id}/delete', [Controllers\InboxController::class, 'destroy'], ['ability' => 'inquiries.delete']);
         $r->add('POST', '/inbox/{id}/status', [Controllers\InboxController::class, 'status'], ['ability' => 'inquiries.read']);
         $r->add('GET', '/reports', [Controllers\ReportController::class, 'index'], ['ability' => 'inquiries.read']);
         $r->add('GET', '/reports/export', [Controllers\ReportController::class, 'export'], ['ability' => 'inquiries.read']);
