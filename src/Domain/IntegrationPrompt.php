@@ -44,6 +44,21 @@ final class IntegrationPrompt
         **server-side**, to our central Inquiry Manager through its HTTP API. The site's current behaviour
         (emails, database records, thank-you pages, redirects) must keep working exactly as it does now.
 
+        ## The most important rule: send in the background, never in the customer's request
+
+        When the customer clicks **Submit**, the website does its normal work exactly as today (validate,
+        send its email, save to its own database) and answers the customer **immediately**. Sending a copy
+        to the Inquiry Manager happens **separately, in the background** (queue, job, after-response hook,
+        cron), in parallel with or after that normal work:
+
+        - The customer must **never wait** for the Inquiry Manager: no API call before the response is sent.
+        - The customer must **never see** whether the Inquiry Manager call succeeded or failed: the page,
+          message, redirect and HTTP status are the same in both cases. No error message, no delay.
+        - A slow, failing or unreachable Inquiry Manager must not change anything for the customer or for the
+          site's own email and database. The inquiry is kept and delivered later by the retry job.
+        - The only thing done during the customer's request is saving the payload to a local outbox (one fast
+          local insert) and handing it to the background mechanism.
+
         ## How to work
 
         1. **Explore first.** Find every form that collects customer inquiries: contact forms, quote/RFQ/price
@@ -137,9 +152,10 @@ final class IntegrationPrompt
 
         ## Requirements
 
-        1. **Never block or break the visitor's submission.** Call the API after the site's existing handling,
-           with a short timeout (connect 5 s, total 10 s). If the call fails, the visitor still sees the normal
-           success message.
+        1. **Background only.** Follow the rule above: the API is called from a queue worker, a job, an
+           after-response hook or cron, never inline before the customer's response. Use a short timeout there
+           too (connect 5 s, total 10 s). Prove it in a test: the form's response is returned without any HTTP
+           call to the Inquiry Manager having been made, and is identical when the API is down.
         2. **No lost inquiries.** Store the exact payload before sending (a small outbox: database table or
            files outside the web root). Mark it delivered on 200/201, retry 429/5xx/network errors from a
            scheduled job (cron, queue worker or the platform's scheduler) with backoff for up to 24 hours, and
@@ -190,11 +206,13 @@ final class IntegrationPrompt
               to `config/services.php`; elsewhere use `config('services.inquiry_manager.*')`, never `env()` (it breaks with `config:cache`).
             - Client: `App\Services\InquiryManagerClient` using the `Http` facade (`withToken()`, `acceptJson()`,
               `timeout(10)`, `connectTimeout(5)`), returning a small result object (status, code, fields, inquiry_id).
-            - Delivery: a queued job `SendInquiryToManager implements ShouldQueue` holding the stored payload,
-              dispatched from the existing form controllers/Livewire components after their current logic.
-              Use `$tries`, `backoff()` and `release($retryAfter)` on 429; `fail()` on other 4xx. If the queue
-              driver is `sync`, use `dispatch(...)->afterResponse()` so the visitor is not delayed, and tell me to
-              configure a real queue worker (`php artisan queue:work`) or a database queue plus the scheduler.
+            - Background delivery: a queued job `SendInquiryToManager implements ShouldQueue` holding the stored
+              payload, dispatched from the existing form controllers/Livewire components after their current logic
+              (email, local save); the controller then returns its normal response at once. Use `$tries`,
+              `backoff()` and `release($retryAfter)` on 429; `fail()` on other 4xx. If the queue driver is `sync`,
+              dispatch with `->afterResponse()` (never a plain sync dispatch, which would make the customer wait),
+              and tell me to configure a real queue (`database` driver + `php artisan queue:work` under a process
+              manager, or `queue:work --stop-when-empty` from the scheduler on shared hosting).
             - Keep a record of each payload (e.g. an `inquiry_outbox` table with a migration) so failed jobs can be
               inspected and retried; `failed_jobs` alone is acceptable only if the payload is preserved there.
             - Tests: Pest/PHPUnit feature tests with `Http::fake()` and `Queue::fake()`.
@@ -205,9 +223,13 @@ final class IntegrationPrompt
             - Client: `app/Libraries/InquiryClient.php` using `service('curlrequest', ['http_errors' => false,
               'timeout' => 10, 'connect_timeout' => 5])`; keep `verify` on.
             - Outbox: migration for an `inquiry_outbox` table (submission_id unique, payload JSON, status,
-              attempts, next_attempt_at, last_status, last_code). Insert the payload, try to send once after the
-              existing controller logic, and add a Spark command `php spark inquiry:retry` that resends due rows;
-              give me the cron line (every 5-10 minutes).
+              attempts, next_attempt_at, last_status, last_code). In the controller, after the existing logic, only
+              insert the payload; the controller returns its normal response unchanged.
+            - Background delivery: a Spark command `php spark inquiry:send` that sends due rows (with backoff), run
+              by cron every minute; give me the cron line. Optionally also send right after the response: register
+              a `post_system` event that calls `fastcgi_finish_request()` (or `litespeed_finish_request()` on
+              LiteSpeed/Hostinger) first and only then sends that request's rows; if neither function exists, skip
+              it and leave delivery to cron.
             - If this is CodeIgniter 3 instead, use a library in `application/libraries`, native cURL and a
               CLI-only controller for the retry job.
             - Tests: CI4 feature/unit tests with the HTTP client mocked.
@@ -219,18 +241,24 @@ final class IntegrationPrompt
               `process.env.INQUIRY_API_URL` / `INQUIRY_API_KEY` there. Never use a `NEXT_PUBLIC_` prefix.
             - Use `fetch` with `cache: 'no-store'` and `AbortSignal.timeout(10_000)`.
             - Create a `clientSubmissionId` with `crypto.randomUUID()` when the form mounts, send it with the form,
-              and build `submission_id` from it on the server (validate the pattern). Regenerate it only after a
-              422 or a successful send. Reply to the browser with a generic success/failure, never the raw API error.
-            - Retries: retry 429/5xx/network errors briefly in the request (max 3 tries, honour `Retry-After`).
-              For durable retry, store undelivered payloads (the site's database or a KV/queue service) and resend
-              them from a scheduled route (e.g. Vercel Cron) protected by a `CRON_SECRET` header check. If there is
-              no storage available, tell me and keep the in-request retries.
+              and build `submission_id` from it on the server (validate the pattern). Regenerate it after each
+              successful submit.
+            - Background delivery: the route/action does the site's own work (email, own database), responds to the
+              browser right away, and schedules the API call with `after()` from `next/server` (Next.js 15.1+), or
+              `waitUntil()` from `@vercel/functions` on older versions on Vercel. The browser's response never
+              depends on the API result.
+            - Durable retry: save the payload (the site's database or a KV/queue service) before scheduling; inside
+              the background task retry 429/5xx/network errors a couple of times (honour `Retry-After`), and resend
+              anything still undelivered from a scheduled route (e.g. Vercel Cron) protected by a `CRON_SECRET`
+              header check. If there is no storage available, tell me.
             - Tests: unit-test the mapping and the client with `fetch` mocked.
             MD,
             'wordpress' => <<<MD
             - Preferred: our ready-made plugin **Atlantic Inquiry Connector**. I will download it from {$connectUrl}?platform=wordpress
-              and install it. It stores each submission in a local outbox, retries with WP-Cron and already supports
-              **Contact Form 7** and **Elementor Pro** forms through its settings screen. The key goes into `wp-config.php`:
+              and install it (version 1.1 or newer). It saves each submission in a local outbox during the request
+              and delivers it in the background after the visitor's response has been sent (or via WP-Cron), retries
+              with WP-Cron, and already supports **Contact Form 7** and **Elementor Pro** forms through its
+              settings screen. The visitor never waits for it or sees its result. The key goes into `wp-config.php`:
               `define( 'AIQ_ENDPOINT', '{$endpoint}' );` and `define( 'AIQ_API_KEY', '…' );` (I add the key myself).
             - For CF7 / Elementor Pro forms: do not write code. Give me, per form, the plugin rule to enter under
               **Settings → Inquiry Connector → Forms to forward**: the form (CF7 ID or title / Elementor form name)
@@ -239,14 +267,17 @@ final class IntegrationPrompt
             - For every other form (WPForms, Gravity Forms, Fluent Forms, Formidable, Ninja Forms, WooCommerce
               enquiry plugins, theme forms): add a must-use plugin `wp-content/mu-plugins/inquiry-forwarding.php`
               that hooks the form plugin's after-submission action and calls
-              `aiq_forward_inquiry( array \$payload )` (it adds `submission_id` and handles the outbox and retries).
+              `aiq_forward_inquiry( array \$payload )`. It adds `submission_id`, saves to the outbox and sends in the
+              background after the response, with retries. Never pass `array( 'sync' => true )` from a form handler.
               Guard every call with `function_exists( 'aiq_forward_inquiry' )`, and use
               `aiq_connector_handles( 'cf7'|'elementor', \$form )` to skip forms the plugin already forwards, so
               nothing is sent twice. Sanitize with WordPress functions (`sanitize_text_field`, `sanitize_email`,
               `sanitize_textarea_field`).
             - Do not add webhook actions that post directly to the API (that would expose the key and duplicate data).
-            - If the plugin cannot be used, implement the same with `wp_remote_post()` (timeout 10), the key from a
-              `wp-config.php` constant, a custom outbox table created on activation and a WP-Cron event.
+            - If the plugin cannot be used, implement the same background pattern: save to a custom outbox table
+              during the request, then send with `wp_remote_post()` (timeout 10) from a `shutdown` hook after
+              `fastcgi_finish_request()` / `litespeed_finish_request()`, or from a WP-Cron event; never inline.
+              Key from a `wp-config.php` constant.
             - On low-traffic sites, tell me to add a real cron calling `wp-cron.php` every 5 minutes.
             MD,
             'shopify' => <<<'MD'
@@ -265,18 +296,24 @@ final class IntegrationPrompt
               verifies the request with `authenticate.public.appProxy(request)`, maps the form fields as above,
               calls the API from the server with the key from the app's environment, and returns a small Liquid or
               HTML confirmation. Configure `[app_proxy]` in `shopify.app.toml` (prefix `apps`, subpath `inquiries`).
-            - Durable retry: store undelivered payloads in the app's database and resend them from a scheduled job.
+            - Background delivery: the proxy route only verifies the signature, saves the payload and immediately
+              returns the thank-you response to the shopper; the API call runs afterwards (a job/queue, or after the
+              response), and undelivered payloads are resent from a scheduled job.
             MD,
             default => <<<'MD'
             - Create one client class, e.g. `InquiryClient.php`, using cURL (`CURLOPT_TIMEOUT` 10,
               `CURLOPT_CONNECTTIMEOUT` 5, certificate verification on), returning status, error code and field errors.
             - Read the URL and key with `getenv()` or from a config file **outside the web root** (and blocked by
               `.htaccess` if it must live inside), never from a file that can be downloaded.
-            - In each form handler, after the existing validation and mail sending, build the payload, write it to
-              an outbox (a database table, or JSON files in a non-public directory written with `LOCK_EX`), then try
-              to send it once.
-            - Add `retry-outbox.php` (CLI only: exit unless `PHP_SAPI === 'cli'`) that resends due items with
-              backoff; give me the cron line (every 5-10 minutes, e.g. Hostinger hPanel → Advanced → Cron Jobs).
+            - In each form handler, after the existing validation, mail sending and local saving, build the payload
+              and only write it to an outbox (a database table, or JSON files in a non-public directory written with
+              `LOCK_EX`). The handler then shows its normal success page/redirect unchanged.
+            - Background delivery: `register_shutdown_function()` that first calls `fastcgi_finish_request()` (or
+              `litespeed_finish_request()` on LiteSpeed/Hostinger) so the customer's page is complete, then
+              `ignore_user_abort(true)` and sends the outbox item. If neither function exists, do not send in the
+              request at all; leave it to the cron script.
+            - Add `send-outbox.php` (CLI only: exit unless `PHP_SAPI === 'cli'`) that sends due items with backoff;
+              give me the cron line (every minute, e.g. Hostinger hPanel → Advanced → Cron Jobs).
             - Escape all output and keep the existing success/redirect flow unchanged.
             MD,
         };

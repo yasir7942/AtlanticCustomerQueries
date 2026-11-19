@@ -68,7 +68,7 @@ final class AIQ_Admin {
 				'message'   => 'Test inquiry from ' . home_url( '/' ) . ' sent by ' . $user->user_login . ' at ' . gmdate( 'c' ),
 				'test'      => true,
 			),
-			array( 'label' => 'Connection test' )
+			array( 'label' => 'Connection test', 'sync' => true )
 		);
 		if ( is_wp_error( $result ) ) {
 			self::back( 'error:' . $result->get_error_message() );

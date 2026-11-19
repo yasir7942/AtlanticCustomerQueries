@@ -22,7 +22,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The payload follows the Inquiry Manager v1 contract. A submission_id is generated if missing;
  * pass your own stable ID if your form can be re-submitted. The inquiry is stored in the outbox
- * first, so a failed delivery is retried by WP-Cron with the same ID.
+ * first and delivered in the background after the visitor has received the response, so the
+ * visitor never waits for the Inquiry Manager. Failed deliveries are retried by WP-Cron with the
+ * same ID. The result is then array( 'ok' => true, 'queued' => true, 'status' => 202, ... ).
+ *
+ * Pass array( 'sync' => true ) as the second argument to send immediately and get the API result
+ * (used by the admin test button; do not use it in visitor-facing form handlers).
  *
  * @return array{ok:bool,queued:bool,status:int,code:string,message:string,inquiry_id:?int,fields:array}|WP_Error
  */
@@ -40,7 +45,10 @@ function aiq_forward_inquiry( array $data, array $args = array() ) {
 		$data['source']['page_url'] = wp_get_referer();
 	}
 	$label = isset( $args['label'] ) ? (string) $args['label'] : ( isset( $data['form_id'] ) ? (string) $data['form_id'] : 'custom' );
-	return AIQ_Outbox::submit( $data, 'custom', $label );
+	if ( ! empty( $args['sync'] ) ) {
+		return AIQ_Outbox::submit( $data, 'custom', $label );
+	}
+	return AIQ_Outbox::enqueue( $data, 'custom', $label );
 }
 
 /**

@@ -48,6 +48,8 @@ test($G, 'Connect page offers a Claude Code prompt for every platform, never con
         contains('`aiq_' . $keyId . '_…', $prompt, 'masked key hint');
         contains('Platform guidance: ' . App\Domain\WebsiteService::PLATFORMS[$platform], $prompt);
         contains('http://inquiries.test/websites/' . $site['id'] . '/connect', $prompt);
+        contains("send in the background, never in the customer's request", $prompt, 'background rule');
+        contains('must **never see** whether the Inquiry Manager call succeeded or failed', $prompt);
         not_contains($site['key'], $page->body, 'full key never on the page again');
         not_contains(explode('_', $site['key'], 3)[2], $prompt, 'secret never in the prompt');
     }

@@ -62,6 +62,48 @@ if ( ! function_exists( 'aiqs_send' ) ) {
 		return false;
 	}
 	add_action( 'aiqs_retry', 'aiqs_send', 10, 2 );
+
+	/**
+	 * Send in the background: the visitor gets the normal response (form email, thank-you message)
+	 * straight away and never waits for, or sees, the Inquiry Manager's result.
+	 * Delivery runs on 'shutdown' after the connection to the visitor is closed (PHP-FPM / LiteSpeed);
+	 * where that is not possible it is handed to WP-Cron instead.
+	 */
+	function aiqs_send_later( array $payload ) {
+		static $queue = null;
+		if ( empty( $payload['submission_id'] ) ) {
+			$payload['submission_id'] = 'wp-' . substr( md5( home_url( '/' ) ), 0, 8 ) . '-' . wp_generate_uuid4();
+		}
+		if ( null === $queue ) {
+			$queue = array();
+			add_action(
+				'shutdown',
+				function () use ( &$queue ) {
+					$items = $queue;
+					$queue = array();
+					if ( ! $items ) {
+						return;
+					}
+					if ( function_exists( 'fastcgi_finish_request' ) ) {
+						fastcgi_finish_request();
+					} elseif ( function_exists( 'litespeed_finish_request' ) ) {
+						litespeed_finish_request();
+					} elseif ( 'cli' !== PHP_SAPI ) {
+						foreach ( $items as $item ) {
+							wp_schedule_single_event( time(), 'aiqs_retry', array( $item, 1 ) );
+						}
+						return;
+					}
+					ignore_user_abort( true );
+					foreach ( $items as $item ) {
+						aiqs_send( $item );
+					}
+				},
+				0
+			);
+		}
+		$queue[] = $payload;
+	}
 }
 
 if ( ! function_exists( 'aiqs_map' ) ) {
@@ -146,7 +188,7 @@ function aiqs_cf7( $contact_form, $mail_sent ) {
 			),
 		)
 	);
-	aiqs_send( $payload );
+	aiqs_send_later( $payload );
 }
 
 /* ---------------------------------------------------------------------------
@@ -195,7 +237,7 @@ add_action(
 				'source'    => array( 'page_url' => (string) wp_get_referer() ),
 			)
 		);
-		aiqs_send( $payload );
+		aiqs_send_later( $payload );
 	},
 	10,
 	2
@@ -210,7 +252,7 @@ add_action( 'admin_post_nopriv_my_sample_request', 'my_sample_request_handler' )
 add_action( 'admin_post_my_sample_request', 'my_sample_request_handler' );
 function my_sample_request_handler() {
 	check_admin_referer( 'my_sample_request' );            // your form prints wp_nonce_field( 'my_sample_request' )
-	aiqs_send( array(
+	aiqs_send_later( array(
 		'submission_id' => 'wp-sample-' . sanitize_key( $_POST['form_token'] ),   // hidden field generated once per page view
 		'form_type'     => 'sample',
 		'form_id'       => 'sample-request',

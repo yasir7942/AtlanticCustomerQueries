@@ -72,7 +72,7 @@ final class AIQ_Integrations {
 			'email_sent' => $contact_form->in_demo_mode() ? null : (bool) $mail_sent,
 		);
 		$payload = AIQ_Mapper::build( $fields, $rule, $context );
-		AIQ_Outbox::submit( $payload, 'cf7', $contact_form->title() . ' (#' . $contact_form->id() . ')' );
+		AIQ_Outbox::enqueue( $payload, 'cf7', $contact_form->title() . ' (#' . $contact_form->id() . ')' );
 	}
 
 	public static function elementor_mail_sent( $settings, $record ) {
@@ -112,6 +112,6 @@ final class AIQ_Integrations {
 			'email_sent' => self::$elementor_mail_sent,
 		);
 		$payload = AIQ_Mapper::build( $fields, $rule, $context );
-		AIQ_Outbox::submit( $payload, 'elementor', $form_name );
+		AIQ_Outbox::enqueue( $payload, 'elementor', $form_name );
 	}
 }

@@ -50,9 +50,9 @@ your-consent = ignore
 
 Targets: `full_name company email phone country address city postcode message`, `products[N].name|sku|variant|quantity|unit|notes`, `fields.Your label`, `ignore`. Unmapped fields are sent as custom answers labelled with the field name or Elementor field title (switch off under Options). Mapping two fields to `full_name` joins them (first + last name). Only one rule per form is allowed.
 
-### 4. Retries
+### 4. Background delivery and retries
 
-Each submission is written to a local outbox table first, then sent. `429`, `5xx` and network errors are retried by WP-Cron every 5 minutes with the same `submission_id` (up to 10 attempts). `4xx` results are marked **failed** and listed on the settings page with a Retry button; failed rows are removed after 14 days. WP-Cron runs on page visits; on low-traffic sites add a real cron in hPanel: `wget -q -O - https://example.com/wp-cron.php?doing_wp_cron >/dev/null 2>&1`.
+The visitor never waits for the Inquiry Manager: during the form submission the plugin only saves the inquiry to a local outbox table. The form's own email and thank-you message work exactly as before. The inquiry is sent after the visitor has received the response (PHP-FPM or LiteSpeed, as on Hostinger), or by WP-Cron within 5 minutes where the response cannot be finished early. Whether delivery succeeds or fails is never shown to the visitor. `429`, `5xx` and network errors are retried by WP-Cron every 5 minutes with the same `submission_id` (up to 10 attempts). `4xx` results are marked **failed** and listed on the settings page with a Retry button; failed rows are removed after 14 days. WP-Cron runs on page visits; on low-traffic sites add a real cron in hPanel: `wget -q -O - https://example.com/wp-cron.php?doing_wp_cron >/dev/null 2>&1`.
 
 ### 5. Test and confirm receipt
 

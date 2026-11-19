@@ -189,6 +189,8 @@ test($G, 'WordPress plugin ZIP: structure, lint and documented path to receipt (
     eq(true, $r['cf7']['ok']);
     eq(true, $r['elementor']['ok']);
     eq(true, $r['helper']['ok']);
+    eq(true, $r['helper_queued'] ?? null, 'aiq_forward_inquiry() queues for background delivery');
+    eq(0, $r['http_during_request'] ?? null, 'no API call while the visitor waits; delivery runs after the response');
     eq(true, $r['offline_queued']);
     eq(1, $r['cron_processed']);
     eq(422, $r['invalid_status']);

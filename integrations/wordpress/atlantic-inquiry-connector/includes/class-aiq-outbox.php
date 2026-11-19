@@ -72,8 +72,83 @@ final class AIQ_Outbox {
 		wp_clear_scheduled_hook( self::CRON_HOOK );
 	}
 
+	/** @var int[] outbox rows to deliver after the visitor's response has been sent */
+	private static $deferred = array();
+	private static $shutdown_hooked = false;
+
 	/**
-	 * Store and immediately try to deliver one payload.
+	 * Store one payload and deliver it in the background, after the visitor has received the
+	 * page/AJAX response. The visitor never waits for the Inquiry Manager and never sees its result.
+	 *
+	 * @return array{ok:bool,queued:bool,status:int,code:string,message:string,inquiry_id:?int,fields:array}
+	 */
+	public static function enqueue( array $payload, $source, $form_label ) {
+		global $wpdb;
+		$now = current_time( 'mysql', true );
+		$wpdb->insert(
+			self::table(),
+			array(
+				'submission_id'   => $payload['submission_id'],
+				'source'          => substr( (string) $source, 0, 20 ),
+				'form_label'      => substr( (string) $form_label, 0, 190 ),
+				'payload'         => wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
+				'status'          => 'pending',
+				'attempts'        => 0,
+				'next_attempt_at' => $now,
+				'created_at'      => $now,
+				'updated_at'      => $now,
+			),
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' )
+		);
+		$id = (int) $wpdb->insert_id;
+		if ( $id <= 0 ) {
+			// Outbox unavailable (table missing): fall back to sending now so nothing is lost.
+			return self::submit( $payload, $source, $form_label );
+		}
+		self::$deferred[] = $id;
+		if ( ! self::$shutdown_hooked ) {
+			self::$shutdown_hooked = true;
+			add_action( 'shutdown', array( __CLASS__, 'flush_deferred' ), 0 );
+		}
+		return array(
+			'ok'         => true,
+			'queued'     => true,
+			'status'     => 202,
+			'code'       => 'queued',
+			'message'    => 'Saved; it is delivered in the background.',
+			'inquiry_id' => null,
+			'fields'     => array(),
+		);
+	}
+
+	/**
+	 * Runs on 'shutdown'. First closes the connection to the visitor (PHP-FPM or LiteSpeed),
+	 * then delivers. Where the connection cannot be closed early, delivery is left to WP-Cron
+	 * (every five minutes) so the visitor is never kept waiting.
+	 */
+	public static function flush_deferred() {
+		$ids            = self::$deferred;
+		self::$deferred = array();
+		if ( ! $ids ) {
+			return;
+		}
+		if ( function_exists( 'fastcgi_finish_request' ) ) {
+			fastcgi_finish_request();
+		} elseif ( function_exists( 'litespeed_finish_request' ) ) {
+			litespeed_finish_request();
+		} elseif ( 'cli' !== PHP_SAPI ) {
+			self::ensure_scheduled();
+			return;
+		}
+		ignore_user_abort( true );
+		foreach ( $ids as $id ) {
+			self::deliver( $id );
+		}
+	}
+
+	/**
+	 * Store and immediately try to deliver one payload (synchronous: used by the admin
+	 * "Send test inquiry" button and by aiq_forward_inquiry( $data, array( 'sync' => true ) )).
 	 *
 	 * @return array delivery result (see AIQ_Client::send) plus 'queued' => bool
 	 */

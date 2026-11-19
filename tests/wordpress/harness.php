@@ -108,7 +108,11 @@ final class FakeCF7Form
 $lastLog = fn () => get_option('aiq_delivery_log', [])[0] ?? null;
 $cf7 = function (int $formId, array $data, bool $mailOk = true) {
     WPCF7_Submission::$instance = new WPCF7_Submission($data, ['url' => 'https://wp.example.test/contact/', 'remote_ip' => '203.0.113.50']);
+    $http = count($GLOBALS['wp_http_log'] ?? []);
     do_action($mailOk ? 'wpcf7_mail_sent' : 'wpcf7_mail_failed', new FakeCF7Form($formId, 'Contact form ' . $formId));
+    // Nothing may be sent while the visitor waits: delivery happens on shutdown, after the response.
+    $GLOBALS['http_during_request'] = ($GLOBALS['http_during_request'] ?? 0) + count($GLOBALS['wp_http_log'] ?? []) - $http;
+    do_action('shutdown');
 };
 $cf7(123, [
     'your-name' => 'CF7 Visitor',
@@ -158,7 +162,10 @@ $record = new FakeElementorRecord(['form_name' => 'Quote Request', 'id' => 'a1b2
     'field_9f2' => ['id' => 'field_9f2', 'title' => 'Delivery city', 'value' => 'Sharjah'],
 ]);
 do_action('elementor_pro/forms/mail_sent', [], $record);
+$http = count($GLOBALS['wp_http_log']);
 do_action('elementor_pro/forms/new_record', $record, null);
+$GLOBALS['http_during_request'] += count($GLOBALS['wp_http_log']) - $http;
+do_action('shutdown');
 $log = $lastLog();
 $out['elementor'] = ['ok' => $log['ok'] ?? false, 'inquiry_id' => $log['inquiry_id'] ?? null];
 
@@ -169,7 +176,10 @@ $r = aiq_forward_inquiry([
     'full_name' => 'Helper Person',
     'fields' => ['swatches' => ['label' => 'Swatches', 'value' => ['Oak', 'Walnut']]],
 ]);
-$out['helper'] = ['ok' => $r['ok'], 'inquiry_id' => $r['inquiry_id'] ?? null];
+$out['helper_queued'] = ($r['queued'] ?? false) === true && ($r['status'] ?? 0) === 202;
+do_action('shutdown');
+$log = $lastLog();
+$out['helper'] = ['ok' => $log['ok'] ?? false, 'inquiry_id' => $log['inquiry_id'] ?? null];
 
 // 7. Outbox: API unreachable -> queued; later cron run delivers with the same submission_id.
 $settings = AIQ_Settings::all();
@@ -186,7 +196,7 @@ $out['cron_processed'] = AIQ_Outbox::process_due();
 $out['outbox_empty_after_cron'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM wptest_aiq_outbox WHERE submission_id = 'wp-outbox-test-1'") === 0;
 
 // 8. Permanent failure (422) is kept as failed and not retried.
-$r = aiq_forward_inquiry(['form_type' => 'complaint', 'full_name' => 'Bad Type']);
+$r = aiq_forward_inquiry(['form_type' => 'complaint', 'full_name' => 'Bad Type'], ['sync' => true]);
 $out['invalid_status'] = $r['status'];
 $out['invalid_marked_failed'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM wptest_aiq_outbox WHERE status = 'failed'") === 1;
 $out['failed_rows'] = count(AIQ_Outbox::failed_rows());
@@ -209,4 +219,5 @@ $out['snippet_status'] = end($GLOBALS['wp_http_log'])['status'];
 $settings['rules'][0]['enabled'] = 1;
 update_option('aiq_settings', $settings);
 
+$out['http_during_request'] = $GLOBALS['http_during_request'];
 echo json_encode($out, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), "\n";

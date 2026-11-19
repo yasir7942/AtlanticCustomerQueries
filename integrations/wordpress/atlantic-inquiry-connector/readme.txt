@@ -2,7 +2,7 @@
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 
 Forwards Contact Form 7, Elementor Pro and custom PHP form submissions to the Inquiry Manager.
 
@@ -12,6 +12,8 @@ Forwards Contact Form 7, Elementor Pro and custom PHP form submissions to the In
 * Contact Form 7: hooks wpcf7_mail_sent / wpcf7_mail_failed (after CF7 mail; emails are unchanged).
 * Elementor Pro Forms: hooks elementor_pro/forms/new_record (after the form's actions, including Email).
 * Custom PHP forms: call aiq_forward_inquiry( $data ).
+* Background delivery: the submission is saved to a local outbox during the request and sent after the
+  visitor has received the response, so visitors never wait for or see the Inquiry Manager result.
 * Durable outbox table with WP-Cron retries using the same submission ID (no duplicates).
 * Settings are restricted to administrators (manage_options) and protected with nonces.
 
@@ -30,3 +32,13 @@ Forwards Contact Form 7, Elementor Pro and custom PHP form submissions to the In
 
 Forward each form either with a rule in this plugin or with a functions.php snippet, never both.
 The bundled snippets call aiq_connector_handles() and skip forms that already have a rule.
+
+== Changelog ==
+
+= 1.1.0 =
+* Form submissions (CF7, Elementor Pro, aiq_forward_inquiry) are delivered in the background after the
+  visitor response (PHP-FPM / LiteSpeed), or by WP-Cron where the response cannot be finished early.
+* aiq_forward_inquiry( $data, array( 'sync' => true ) ) sends immediately (used by the test button).
+
+= 1.0.0 =
+* First release.
