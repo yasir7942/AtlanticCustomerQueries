@@ -32,6 +32,31 @@ test($G, 'register two websites through the UI as Developer and create a key for
     $ctx1->dev = $dev;
 });
 
+test($G, 'Connect page offers a Claude Code prompt for every platform, never containing the key', function () use ($ctx1) {
+    $c = new Client();
+    $c->login('dev1@example.test', 'correct horse battery');
+    $site = $ctx1->sites['Alpha Valves'];
+    [$keyId] = array_slice(explode('_', $site['key'], 3), 1, 1);
+    foreach (array_keys(App\Domain\WebsiteService::PLATFORMS) as $platform) {
+        $page = $c->get("/websites/{$site['id']}/connect", ['platform' => $platform]);
+        eq(200, $page->status, $platform);
+        preg_match('#<code id="ai-prompt-text">(.*?)</code>#s', $page->body, $m);
+        ok(isset($m[1]), "prompt rendered for {$platform}");
+        $prompt = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5);
+        contains('POST http://inquiries.test/api/v1/submissions', $prompt, $platform);
+        contains('Alpha Valves', $prompt);
+        contains('`aiq_' . $keyId . '_…', $prompt, 'masked key hint');
+        contains('Platform guidance: ' . App\Domain\WebsiteService::PLATFORMS[$platform], $prompt);
+        contains('http://inquiries.test/websites/' . $site['id'] . '/connect', $prompt);
+        not_contains($site['key'], $page->body, 'full key never on the page again');
+        not_contains(explode('_', $site['key'], 3)[2], $prompt, 'secret never in the prompt');
+    }
+    // WordPress guidance points at the plugin and wp-config constants.
+    $wp = $c->get("/websites/{$site['id']}/connect", ['platform' => 'wordpress'])->body;
+    contains('aiq_forward_inquiry', $wp);
+    contains('AIQ_API_KEY', $wp);
+});
+
 test($G, 'each key stores submissions under its own website', function () use ($ctx1) {
     $a = api($ctx1->sites['Alpha Valves']['key'], sample_payload('w1-alpha-1', ['full_name' => 'Alpha Customer']));
     $b = api($ctx1->sites['Beta Pumps']['key'], sample_payload('w1-beta-1', ['full_name' => 'Beta Customer']));

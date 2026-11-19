@@ -337,6 +337,12 @@ h1 .type { font-size: .85rem; }
 .code-block { position: relative; margin: .5rem 0 1rem; }
 .code-block pre { background: #10151d; color: #e6e9ef; padding: .9rem 1rem; border-radius: var(--radius); overflow-x: auto; font-size: .82rem; line-height: 1.5; margin: 0; max-height: 520px; }
 .code-block pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+.ai-prompt { border-top: 3px solid var(--accent); }
+.ai-prompt .inline-form label { font-weight: 400; font-size: .85rem; color: var(--muted); }
+.ai-prompt .inline-form select { width: auto; height: 36px; padding-top: .3rem; padding-bottom: .3rem; }
+.ai-steps { margin: .25rem 0 .75rem; padding-left: 1.3rem; }
+.ai-steps li { margin: .3rem 0; max-width: 95ch; }
+.code-block pre.prompt-pre { max-height: 380px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .copy-btn { position: absolute; top: .4rem; right: .4rem; background: #2a3240; color: #fff; border-color: #3a4352; }
 .copy-btn:hover { background: #374050; }
 

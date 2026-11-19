@@ -44,13 +44,30 @@ final class ConnectController
             [$id]
         );
         $hasPluginZip = is_file($root . '/dist/atlantic-inquiry-connector.zip');
+        $keys = $ctx->credentials->forWebsite($id);
+        $activeKey = null;
+        foreach ($keys as $k) {
+            if ($k['status'] === 'active' && ($k['expires_at'] === null || $k['expires_at'] > utc_now())) {
+                $activeKey = $k;
+                break;
+            }
+        }
+        $aiPrompt = \App\Domain\IntegrationPrompt::build(
+            $site,
+            $platform,
+            $endpoint,
+            $ctx->absoluteUrl('/websites/' . $id . '/connect'),
+            (int) $ctx->config->get('api.max_body_bytes'),
+            $activeKey ? 'aiq_' . $activeKey['key_id'] . '_…' . $activeKey['last_four'] : null,
+        );
 
         return $ctx->render('websites/connect', [
             'title' => 'API Connect · ' . $site['name'],
             'site' => $site,
             'platform' => $platform,
             'endpoint' => $endpoint,
-            'keys' => $ctx->credentials->forWebsite($id),
+            'keys' => $keys,
+            'aiPrompt' => $aiPrompt,
             'newToken' => $ctx->takeSecret('token:' . $id),
             'lastSuccess' => $lastSuccess,
             'recent' => $recent,

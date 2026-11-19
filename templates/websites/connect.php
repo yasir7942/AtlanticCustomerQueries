@@ -100,6 +100,32 @@ $curl = "curl -X POST " . $endpoint . " \\\n  -H \"Authorization: Bearer \$INQUI
     </section>
 </div>
 
+<section class="panel ai-prompt" aria-labelledby="ai-h">
+    <div class="panel-head">
+        <h2 id="ai-h" class="h3">Let Claude Code connect this website</h2>
+        <form method="get" action="<?= e($ctx->url('/websites/' . $site['id'] . '/connect')) ?>" class="inline-form">
+            <label for="platform-ai">Website built with</label>
+            <select id="platform-ai" name="platform" data-autosubmit>
+                <?php foreach (WebsiteService::PLATFORMS as $k => $label): ?>
+                    <option value="<?= e($k) ?>"<?= $platform === $k ? ' selected' : '' ?>><?= e($label) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <noscript><button type="submit" class="btn btn-small">Show</button></noscript>
+        </form>
+    </div>
+    <ol class="ai-steps">
+        <li><strong>Put the key on the website's server</strong>: <?php if ($platform === 'wordpress'): ?>in <code>wp-config.php</code> as <code>AIQ_API_KEY</code><?php else: ?>as the environment variable <code>INQUIRY_API_KEY</code>, next to <code>INQUIRY_API_URL</code><?php endif; ?>. <?= $activeKeys ? 'Use the key you copied when it was created, or generate a new one above.' : 'Generate a key above first.' ?></li>
+        <li><strong>Open a terminal in the website's project folder</strong> and start Claude Code: <code>claude</code></li>
+        <li><strong>Paste the prompt below.</strong> Claude explores the code, shows you a plan of which forms it will connect, writes the code and tests, and ends with the steps you still need to do (environment variables, cron, deploy).</li>
+        <li><strong>Check the result</strong> under <em>Recent API requests</em> at the bottom of this page.</li>
+    </ol>
+    <p class="small muted">The prompt includes the endpoint, the full API contract, retry rules and <?= e(WebsiteService::PLATFORMS[$platform]) ?> guidance for <?= e($site['name']) ?>. It never contains the API key, so the key is not sent to an AI service or written into the code.</p>
+    <div class="code-block">
+        <button type="button" class="btn btn-small copy-btn" data-copy="#ai-prompt-text">Copy prompt</button>
+        <pre class="prompt-pre"><code id="ai-prompt-text"><?= e($aiPrompt) ?></code></pre>
+    </div>
+</section>
+
 <section class="panel" aria-labelledby="sample-h">
     <h2 id="sample-h" class="h3">Sample request and response</h2>
     <div class="grid-2 grid-tight">
