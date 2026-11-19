@@ -26,7 +26,8 @@ $roleLabels = ['developer' => 'Developer', 'director' => 'Director', 'user' => '
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
     <title><?= e(($title ? $title . ' · ' : '') . $appName) ?></title>
     <link rel="icon" href="<?= e($ctx->url('/assets/favicon.svg')) ?>?v=<?= e(asset_version('favicon.svg')) ?>" type="image/svg+xml">
     <link rel="apple-touch-icon" href="<?= e($ctx->url('/assets/apple-touch-icon.png')) ?>?v=<?= e(asset_version('apple-touch-icon.png')) ?>">

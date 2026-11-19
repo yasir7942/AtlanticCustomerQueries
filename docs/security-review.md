@@ -76,7 +76,7 @@ Scope: the PHP application, intake API, connectors and deployment configuration 
 
 ## Headers and transport
 
-`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cache-Control: no-store` on app pages, `Strict-Transport-Security` on HTTPS. `.htaccess` forces HTTPS for browsers, disables directory listings and blocks dotfiles and data/config extensions.
+`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cache-Control: no-store` on app pages, `Strict-Transport-Security` on HTTPS, and `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex` on every response (pages, API and, via `.htaccess`, static files). Pages also carry a robots meta tag and `robots.txt` disallows all crawling, so the app never appears in search engines. `.htaccess` forces HTTPS for browsers, disables directory listings and blocks dotfiles and data/config extensions.
 
 ## Residual risks and recommendations
 

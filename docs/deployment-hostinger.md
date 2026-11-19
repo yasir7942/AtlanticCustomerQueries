@@ -11,7 +11,9 @@ Only the entry point, `.htaccess` and static assets are web-accessible. Everythi
 ├── public_html/                 ← contents of the repository's public/ folder ONLY
 │   ├── index.php
 │   ├── .htaccess
-│   └── assets/ (app.css, app.js)
+│   ├── robots.txt               (blocks all search engines)
+│   ├── favicon.ico
+│   └── assets/ (app.css, app.js, icons)
 └── inquiry-app/                 ← everything else
     ├── .env                     (chmod 600)
     ├── bin/  database/  docs/  integrations/  src/  templates/

@@ -35,6 +35,9 @@ final class App
 {
     public const VERSION = '1.0.0';
 
+    /** Private application: never indexed, followed, cached or shown in any search engine. */
+    public const ROBOTS = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
+
     private Router $router;
     private ?Database $db;
     public readonly Logger $logger;
@@ -233,6 +236,7 @@ final class App
             'Referrer-Policy' => 'same-origin',
             'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
             'Cross-Origin-Opener-Policy' => 'same-origin',
+            'X-Robots-Tag' => self::ROBOTS,
         ];
         if (!isset($response->headers['Cache-Control'])) {
             $response->headers['Cache-Control'] = 'no-store, private';
@@ -245,7 +249,7 @@ final class App
 
     private function withApiHeaders(Response $response): Response
     {
-        $response->headers += ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store'];
+        $response->headers += ['X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store', 'X-Robots-Tag' => self::ROBOTS];
         return $response;
     }
 }

@@ -12,7 +12,7 @@ One inbox for contact inquiries, quotation requests and sample requests from man
 
 | Path | What |
 |---|---|
-| `public/` | the only web root: `index.php`, `.htaccess`, `assets/` |
+| `public/` | the only web root: `index.php`, `.htaccess`, `robots.txt`, `favicon.ico`, `assets/` |
 | `src/` | application code (`App\` PSR-4) |
 | `templates/` | server-rendered views |
 | `database/migrations/` | MariaDB schema |

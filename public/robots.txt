@@ -1,0 +1,4 @@
+# Inquiry Manager is a private application. Nothing here may be crawled or indexed.
+# Every page and response also sends "X-Robots-Tag: noindex, nofollow" and a robots meta tag.
+User-agent: *
+Disallow: /

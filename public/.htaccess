@@ -27,6 +27,7 @@ ServerSignature Off
     # -f check below, which LiteSpeed can evaluate against the original URL when the project is
     # deployed in a subfolder and requests arrive via the root .htaccess rewrite.
     RewriteRule ^assets/ - [L]
+    RewriteRule ^(robots\.txt|favicon\.ico)$ - [L]
 
     # Front controller: real files are served directly, everything else goes to index.php.
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -48,6 +49,8 @@ ServerSignature Off
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "same-origin"
     Header always unset X-Powered-By
+    # Private application: keep every URL (pages, API, files, images) out of search engines.
+    Header set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex"
     <FilesMatch "\.(css|js|svg|png|ico|woff2)$">
         Header set Cache-Control "public, max-age=604800"
     </FilesMatch>

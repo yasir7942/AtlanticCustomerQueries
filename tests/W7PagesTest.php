@@ -61,3 +61,21 @@ test($G, 'after sign-in the user returns to the page they asked for (same-app pa
     $c2->get('/login');
     eq('/', location($c2->post('/login', ['email' => 'intended@example.test', 'password' => 'correct horse battery'])), 'no open redirect');
 });
+
+test($G, 'the whole application is hidden from search engines', function () {
+    $robots = (string) file_get_contents(T::$root . '/public/robots.txt');
+    contains("User-agent: *\nDisallow: /", str_replace("\r", '', $robots), 'robots.txt blocks every crawler');
+    $guest = new Client();
+    $login = $guest->get('/login');
+    eq(App\App::ROBOTS, $login->headers['X-Robots-Tag'] ?? null, 'sign-in page header');
+    contains('<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">', $login->body);
+    eq(App\App::ROBOTS, $guest->get('/nope')->headers['X-Robots-Tag'] ?? null, 'error pages too');
+    make_user('user', 'robots@example.test');
+    $c = new Client();
+    $c->login('robots@example.test', 'correct horse battery');
+    $home = $c->get('/');
+    eq(App\App::ROBOTS, $home->headers['X-Robots-Tag'] ?? null, 'signed-in pages');
+    contains('<meta name="googlebot" content="noindex', $home->body);
+    eq(App\App::ROBOTS, api(null, [])['headers']['X-Robots-Tag'] ?? null, 'API responses');
+    contains('X-Robots-Tag "' . App\App::ROBOTS . '"', (string) file_get_contents(T::$root . '/public/.htaccess'), 'static files via .htaccess');
+});
