@@ -41,8 +41,14 @@ $db = App\Support\Database::connect($config->get('db'));
 
 $user = $db->one('SELECT id, name, email, role, status FROM users WHERE email = ?', [$email]);
 if ($user === null) {
+    $accounts = $db->all('SELECT email, role, status FROM users ORDER BY role, email');
+    if ($accounts === []) {
+        fwrite(STDERR, "This database ({$config->get('db')['name']}) has no accounts yet. Create the first Developer instead:\n"
+            . "  php bin/create-developer.php --name=\"Your Name\" --email={$email}\n");
+        exit(2);
+    }
     fwrite(STDERR, "No account with the email {$email}. Existing accounts:\n");
-    foreach ($db->all('SELECT email, role, status FROM users ORDER BY role, email') as $u) {
+    foreach ($accounts as $u) {
         fwrite(STDERR, "  {$u['email']} ({$u['role']}, {$u['status']})\n");
     }
     exit(2);
