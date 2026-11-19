@@ -23,11 +23,6 @@
             "src/helpers.php"
         ]
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
-    },
     "scripts": {
         "migrate": "@php bin/migrate.php",
         "test": "@php tests/run.php",
