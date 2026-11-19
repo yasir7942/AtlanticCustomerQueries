@@ -17,7 +17,7 @@ One inbox for contact inquiries, quotation requests and sample requests from man
 | `templates/` | server-rendered views |
 | `database/migrations/` | MariaDB schema |
 | `database/fixtures/seed.php` | synthetic demo data |
-| `bin/` | CLI: `migrate.php`, `create-developer.php`, `backup.php`, `build-wordpress-plugin.php` |
+| `bin/` | CLI: `migrate.php`, `create-developer.php`, `reset-password.php`, `backup.php`, `build-wordpress-plugin.php` |
 | `integrations/` | connector source for each platform; WordPress plugin source |
 | `dist/atlantic-inquiry-connector.zip` | installable WordPress plugin |
 | `docs/` | [API](docs/api.md), [SQLite mapping](docs/sqlite-mapping.md), [Hostinger deployment](docs/deployment-hostinger.md), [security review](docs/security-review.md), [integration guides](docs/integrations/) |

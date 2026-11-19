@@ -95,6 +95,13 @@ Migrations are recorded in `schema_migrations`; running them again does nothing.
 
 Further accounts are created in the app (**Users**). There is no public signup.
 
+**Forgotten password.** A Director or Developer can reset anyone they manage under **Users**. If you are locked out yourself (for example the only Developer), use SSH in the application folder:
+```
+php bin/reset-password.php --email=you@example.com            # prompts for a new password
+php bin/reset-password.php --email=you@example.com --temporary # prints a one-time password
+```
+This signs the account out on every device, clears the sign-in lockout and writes an audit entry.
+
 ## 8. Cron jobs (hPanel → Advanced → Cron Jobs)
 
 | Schedule | Command |

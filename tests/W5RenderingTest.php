@@ -185,6 +185,52 @@ test($G, 'archiving a website with history keeps inquiries readable and revokes 
     }
 });
 
+test($G, 'reset-password CLI sets a new password, signs out everywhere and clears the throttle', function () {
+    $u = make_user('developer', 'forgot@example.test', 'old password value');
+    $run = function (array $args, string $stdin = ''): array {
+        $proc = proc_open([PHP_BINARY, ...php_ext_args('pdo_mysql'), T::$root . '/bin/reset-password.php', ...$args],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, T::$root,
+            array_merge(getenv(), ['DB_NAME' => $GLOBALS['TEST_DB_NAME']]));
+        fwrite($pipes[0], $stdin);
+        fclose($pipes[0]);
+        $out = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        return [proc_close($proc), $out];
+    };
+    $version = (int) T::db()->value('SELECT session_version FROM users WHERE id = ?', [$u['id']]);
+    T::db()->run('INSERT INTO remember_tokens (user_id, selector, validator_hash, session_version, expires_at, created_at)
+                  VALUES (?, ?, ?, ?, ?, ?)', [$u['id'], str_repeat('a', 24), str_repeat('b', 64), $version, gmdate('Y-m-d H:i:s', time() + 3600), utc_now()]);
+    $limiter = new App\Support\RateLimiter(T::db());
+    for ($i = 0; $i < 10; $i++) {
+        $limiter->hit('login-acct:forgot@example.test', 100, 900);
+    }
+
+    // Mismatched confirmation changes nothing.
+    [$code] = $run(['--email=Forgot@Example.test'], "brand new passphrase\nsomething else\n");
+    ok($code !== 0);
+    ok(password_verify('old password value', T::db()->value('SELECT password_hash FROM users WHERE id = ?', [$u['id']])));
+
+    [$code, $out] = $run(['--email=Forgot@Example.test'], "brand new passphrase\nbrand new passphrase\n");
+    eq(0, $code, $out);
+    $row = T::db()->one('SELECT * FROM users WHERE id = ?', [$u['id']]);
+    ok(password_verify('brand new passphrase', $row['password_hash']));
+    eq(0, (int) $row['must_change_password']);
+    eq($version + 1, (int) $row['session_version']);
+    eq(0, (int) T::db()->value('SELECT COUNT(*) FROM remember_tokens WHERE user_id = ?', [$u['id']]));
+    ok(!$limiter->tooMany('login-acct:forgot@example.test', 5, 900), 'throttle cleared');
+    ok((int) T::db()->value('SELECT COUNT(*) FROM audit_log WHERE action = "user.password_reset" AND target_id = ? AND details LIKE "%cli%"', [$u['id']]) === 1);
+    ok(!str_contains($out, 'brand new passphrase'), 'password not echoed');
+
+    [$code, $out] = $run(['--email=forgot@example.test', '--temporary']);
+    eq(0, $code, $out);
+    preg_match('/Temporary password: (\S+)/', $out, $m);
+    ok(isset($m[1]) && password_verify($m[1], T::db()->value('SELECT password_hash FROM users WHERE id = ?', [$u['id']])));
+    eq(1, (int) T::db()->value('SELECT must_change_password FROM users WHERE id = ?', [$u['id']]));
+
+    [$code, $out] = $run(['--email=nobody@example.test', '--temporary']);
+    eq(2, $code);
+    contains('forgot@example.test', $out, 'lists existing accounts');
+});
+
 test($G, 'first-Developer SQL bootstrap only inserts when no Developer exists', function () {
     $out = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(T::$root . '/bin/create-developer.php') . ' --sql --name="Boot O\'Strap" --email=boot@example.test 2>&1');
     contains('INSERT INTO users', (string) $out);
